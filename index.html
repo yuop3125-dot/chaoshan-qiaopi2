@@ -7,7 +7,6 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
     <style>
         body {
@@ -16,11 +15,11 @@
             background: #0f172a;
         }
         .serif { font-family: 'Noto Serif SC', serif; }
-        
+
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: #1e293b; }
         ::-webkit-scrollbar-thumb { background: #d97706; border-radius: 4px; }
-        
+
         @keyframes float {
             0%, 100% { transform: translateY(0px); }
             50% { transform: translateY(-10px); }
@@ -34,22 +33,26 @@
             25% { transform: rotate(-5deg); }
             75% { transform: rotate(5deg); }
         }
-        
+        @keyframes tooltip-fade {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
         .float-anim { animation: float 3s ease-in-out infinite; }
         .glow-anim { animation: pulse-glow 2s ease-in-out infinite; }
         .envelope-hover:hover { animation: envelope-shake 0.5s ease-in-out; }
-        
+
         .glass {
             background: rgba(30, 41, 59, 0.7);
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
             border: 1px solid rgba(255, 255, 255, 0.1);
         }
-        
+
         .envelope-card {
             background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
             position: relative;
-            overflow: hidden;
+            overflow: visible;
             transition: all 0.3s ease;
         }
         .envelope-card::before {
@@ -75,7 +78,41 @@
             z-index: 10;
             box-shadow: 0 2px 8px rgba(0,0,0,0.3);
         }
-        
+
+        /* Tooltip for hover */
+        .envelope-tooltip {
+            position: absolute;
+            bottom: calc(100% + 12px);
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.9);
+            color: #fbbf24;
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+            z-index: 100;
+            border: 1px solid rgba(251, 191, 36, 0.3);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+        }
+        .envelope-tooltip::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 6px solid transparent;
+            border-top-color: rgba(0, 0, 0, 0.9);
+        }
+        .envelope-card:hover .envelope-tooltip {
+            opacity: 1;
+            animation: tooltip-fade 0.3s ease;
+        }
+
         .audio-wave {
             display: flex;
             align-items: center;
@@ -92,447 +129,452 @@
             0%, 100% { height: 20%; }
             50% { height: 100%; }
         }
-        
-        .modal-enter { opacity: 0; transform: scale(0.9); }
-        .modal-enter-active { opacity: 1; transform: scale(1); transition: all 0.3s ease; }
-        .modal-exit { opacity: 1; transform: scale(1); }
-        .modal-exit-active { opacity: 0; transform: scale(0.9); transition: all 0.3s ease; }
-        
-        .route-line {
-            stroke: #f59e0b;
-            stroke-width: 2;
-            fill: none;
-            stroke-dasharray: 5,5;
-            animation: dash 20s linear infinite;
+
+        /* Detail page styles */
+        .detail-page {
+            display: none;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
         }
-        @keyframes dash {
-            to { stroke-dashoffset: -100; }
+        .detail-page.active {
+            display: block;
+        }
+
+        .qiaopi-image {
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+            border: 2px solid rgba(251, 191, 36, 0.2);
+        }
+
+        .text-content {
+            background: rgba(254, 243, 199, 0.05);
+            border-left: 4px solid #f59e0b;
+        }
+
+        .back-btn {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 1000;
         }
     </style>
 </head>
 <body class="bg-slate-900 text-white">
 
-    <!-- Navigation -->
-    <nav class="fixed top-0 w-full z-50 glass border-b border-slate-700/50">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex items-center justify-between h-16">
-                <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 bg-gradient-to-br from-amber-500 to-red-600 rounded-lg flex items-center justify-center shadow-lg">
-                        <span class="text-xl font-bold serif">侨</span>
+    <!-- Main Page -->
+    <div id="main-page">
+        <!-- Navigation -->
+        <nav class="fixed top-0 w-full z-50 glass border-b border-slate-700/50">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex items-center justify-between h-16">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 bg-gradient-to-br from-amber-500 to-red-600 rounded-lg flex items-center justify-center shadow-lg">
+                            <span class="text-xl font-bold serif">侨</span>
+                        </div>
+                        <div>
+                            <h1 class="text-xl font-bold serif tracking-wider text-amber-400">潮汕侨批荟萃</h1>
+                            <p class="text-xs text-slate-400">海上丝绸之路的记忆</p>
+                        </div>
                     </div>
-                    <div>
-                        <h1 class="text-xl font-bold serif tracking-wider text-amber-400">潮汕侨批荟萃</h1>
-                        <p class="text-xs text-slate-400">海上丝绸之路的记忆</p>
+                    <div class="hidden md:flex items-center gap-6">
+                        <button onclick="scrollToSection('globe-section')" class="text-sm hover:text-amber-400 transition-colors">全球侨批</button>
+                        <button onclick="scrollToSection('intro-section')" class="text-sm hover:text-amber-400 transition-colors">侨批简介</button>
+                        <button onclick="scrollToSection('language-section')" class="text-sm hover:text-amber-400 transition-colors">日常用语</button>
+                        <button onclick="scrollToSection('scenery-section')" class="text-sm hover:text-amber-400 transition-colors">景点介绍</button>
+                        <button onclick="scrollToSection('customs-section')" class="text-sm hover:text-amber-400 transition-colors">风俗习惯</button>
                     </div>
+                    <button onclick="toggleMobileMenu()" class="md:hidden text-amber-400">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+                    </button>
                 </div>
-                <div class="hidden md:flex items-center gap-6">
-                    <button onclick="scrollToSection('globe-section')" class="text-sm hover:text-amber-400 transition-colors">全球侨批</button>
-                    <button onclick="scrollToSection('intro-section')" class="text-sm hover:text-amber-400 transition-colors">侨批简介</button>
-                    <button onclick="scrollToSection('language-section')" class="text-sm hover:text-amber-400 transition-colors">日常用语</button>
-                    <button onclick="scrollToSection('scenery-section')" class="text-sm hover:text-amber-400 transition-colors">景点介绍</button>
-                    <button onclick="scrollToSection('customs-section')" class="text-sm hover:text-amber-400 transition-colors">风俗习惯</button>
+            </div>
+            <div id="mobile-menu" class="hidden md:hidden glass border-t border-slate-700">
+                <div class="px-4 py-3 space-y-2">
+                    <button onclick="scrollToSection('globe-section')" class="block w-full text-left py-2 text-sm hover:text-amber-400">全球侨批</button>
+                    <button onclick="scrollToSection('intro-section')" class="block w-full text-left py-2 text-sm hover:text-amber-400">侨批简介</button>
+                    <button onclick="scrollToSection('language-section')" class="block w-full text-left py-2 text-sm hover:text-amber-400">日常用语</button>
+                    <button onclick="scrollToSection('scenery-section')" class="block w-full text-left py-2 text-sm hover:text-amber-400">景点介绍</button>
+                    <button onclick="scrollToSection('customs-section')" class="block w-full text-left py-2 text-sm hover:text-amber-400">风俗习惯</button>
                 </div>
-                <button onclick="toggleMobileMenu()" class="md:hidden text-amber-400">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
-                </button>
             </div>
-        </div>
-        <div id="mobile-menu" class="hidden md:hidden glass border-t border-slate-700">
-            <div class="px-4 py-3 space-y-2">
-                <button onclick="scrollToSection('globe-section')" class="block w-full text-left py-2 text-sm hover:text-amber-400">全球侨批</button>
-                <button onclick="scrollToSection('intro-section')" class="block w-full text-left py-2 text-sm hover:text-amber-400">侨批简介</button>
-                <button onclick="scrollToSection('language-section')" class="block w-full text-left py-2 text-sm hover:text-amber-400">日常用语</button>
-                <button onclick="scrollToSection('scenery-section')" class="block w-full text-left py-2 text-sm hover:text-amber-400">景点介绍</button>
-                <button onclick="scrollToSection('customs-section')" class="block w-full text-left py-2 text-sm hover:text-amber-400">风俗习惯</button>
+        </nav>
+
+        <!-- Hero / Globe Section -->
+        <section id="globe-section" class="relative min-h-screen pt-16 flex flex-col items-center justify-center overflow-hidden">
+            <div id="globe-container" class="absolute inset-0 z-0"></div>
+
+            <div class="relative z-10 text-center mb-8 pointer-events-none">
+                <h2 class="text-4xl md:text-6xl font-bold serif mb-4 text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-yellow-200 to-amber-400 drop-shadow-lg">
+                    潮汕侨批荟萃
+                </h2>
+                <p class="text-lg md:text-xl text-slate-300 max-w-2xl mx-auto px-4 drop-shadow-md">
+                    一纸侨批家国情，千里家书抵万金<br>
+                    <span class="text-amber-400 text-sm mt-2 block">鼠标悬停查看信封信息，双击打开侨批详情</span>
+                </p>
             </div>
-        </div>
-    </nav>
 
-    <!-- Hero / Globe Section -->
-    <section id="globe-section" class="relative min-h-screen pt-16 flex flex-col items-center justify-center overflow-hidden">
-        <div id="globe-container" class="absolute inset-0 z-0"></div>
-        
-        <div class="relative z-10 text-center mb-8 pointer-events-none">
-            <h2 class="text-4xl md:text-6xl font-bold serif mb-4 text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-yellow-200 to-amber-400 drop-shadow-lg">
-                潮汕侨批荟萃
-            </h2>
-            <p class="text-lg md:text-xl text-slate-300 max-w-2xl mx-auto px-4 drop-shadow-md">
-                一纸侨批家国情，千里家书抵万金<br>
-                <span class="text-amber-400 text-sm mt-2 block">点击地球上的信封，聆听跨越山海的家书</span>
-            </p>
-        </div>
-
-        <div class="relative z-20 w-full max-w-7xl mx-auto px-4 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mt-8 mb-16">
-        </div>
-
-        <div class="absolute bottom-8 left-1/2 transform -translate-x-1/2 animate-bounce z-10">
-            <svg class="w-6 h-6 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"/></svg>
-        </div>
-    </section>
-
-    <!-- Section 1: 潮汕侨批简介 -->
-    <section id="intro-section" class="py-20 px-4 relative">
-        <div class="max-w-5xl mx-auto">
-            <div class="flex items-center gap-4 mb-12">
-                <div class="h-px flex-1 bg-gradient-to-r from-transparent to-amber-500/50"></div>
-                <h2 class="text-3xl md:text-4xl font-bold serif text-amber-400 text-center">潮汕侨批简介</h2>
-                <div class="h-px flex-1 bg-gradient-to-l from-transparent to-amber-500/50"></div>
+            <!-- Envelope Cards -->
+            <div class="relative z-20 w-full max-w-7xl mx-auto px-4 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mt-8 mb-16" id="envelope-container">
             </div>
-            
-            <div class="glass rounded-2xl p-8 md:p-12 shadow-2xl border border-amber-500/20">
-                <div class="grid md:grid-cols-2 gap-8 items-center">
-                    <div class="space-y-6">
-                        <div class="inline-block px-4 py-1 rounded-full bg-amber-500/20 text-amber-400 text-sm font-medium border border-amber-500/30">
-                            世界记忆遗产
-                        </div>
-                        <h3 class="text-2xl font-bold serif text-white">什么是侨批？</h3>
-                        <div class="prose prose-invert prose-amber max-w-none">
-                            <p class="text-slate-300 leading-relaxed" id="intro-content">
-                                【此处后续上传文字内容】<<br><br>
-                                侨批是海外华侨通过海内外民间机构汇寄至国内的汇款暨家书，是一种信、汇合一的特殊邮传载体。广泛分布在福建、广东潮汕地区及海南等地。<br><br>
-                                潮汕话把"信"称为"批"，侨批是海外侨胞通过民间渠道及后来金融邮政机构寄回国内、连带家书或简单附言的汇款凭证。2013年，侨批档案入选联合国教科文组织《世界记忆名录》，成为人类共同的记忆遗产。
-                            </p>
-                        </div>
-                        <div class="flex gap-4 pt-4">
-                            <div class="text-center">
-                                <div class="text-3xl font-bold text-amber-400 serif">19世纪</div>
-                                <div class="text-xs text-slate-400 mt-1">起源时期</div>
+
+            <div class="absolute bottom-8 left-1/2 transform -translate-x-1/2 animate-bounce z-10">
+                <svg class="w-6 h-6 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"/></svg>
+            </div>
+        </section>
+
+        <!-- Section 1: 潮汕侨批简介 -->
+        <section id="intro-section" class="py-20 px-4 relative">
+            <div class="max-w-5xl mx-auto">
+                <div class="flex items-center gap-4 mb-12">
+                    <div class="h-px flex-1 bg-gradient-to-r from-transparent to-amber-500/50"></div>
+                    <h2 class="text-3xl md:text-4xl font-bold serif text-amber-400 text-center">潮汕侨批简介</h2>
+                    <div class="h-px flex-1 bg-gradient-to-l from-transparent to-amber-500/50"></div>
+                </div>
+
+                <div class="glass rounded-2xl p-8 md:p-12 shadow-2xl border border-amber-500/20">
+                    <div class="grid md:grid-cols-2 gap-8 items-center">
+                        <div class="space-y-6">
+                            <div class="inline-block px-4 py-1 rounded-full bg-amber-500/20 text-amber-400 text-sm font-medium border border-amber-500/30">
+                                世界记忆遗产
                             </div>
-                            <div class="w-px bg-slate-700"></div>
-                            <div class="text-center">
-                                <div class="text-3xl font-bold text-amber-400 serif">17万件</div>
-                                <div class="text-xs text-slate-400 mt-1">潮汕遗存</div>
+                            <h3 class="text-2xl font-bold serif text-white">什么是侨批？</h3>
+                            <div class="prose prose-invert prose-amber max-w-none">
+                                <p class="text-slate-300 leading-relaxed">
+                                    侨批是海外华侨通过海内外民间机构汇寄至国内的汇款暨家书，是一种信、汇合一的特殊邮传载体。广泛分布在福建、广东潮汕地区及海南等地。<br><br>
+                                    潮汕话把"信"称为"批"，侨批是海外侨胞通过民间渠道及后来金融邮政机构寄回国内、连带家书或简单附言的汇款凭证。2013年，侨批档案入选联合国教科文组织《世界记忆名录》，成为人类共同的记忆遗产。
+                                </p>
                             </div>
-                            <div class="w-px bg-slate-700"></div>
-                            <div class="text-center">
-                                <div class="text-3xl font-bold text-amber-400 serif">2013年</div>
-                                <div class="text-xs text-slate-400 mt-1">世界记忆</div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="relative">
-                        <div class="aspect-[3/4] rounded-xl overflow-hidden bg-slate-800 border border-slate-700 shadow-2xl" id="intro-image-placeholder">
-                            <div class="w-full h-full flex items-center justify-center text-slate-500">
+                            <div class="flex gap-4 pt-4">
                                 <div class="text-center">
-                                    <svg class="w-16 h-16 mx-auto mb-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                                    <p class="text-sm">【后续上传侨批相关图片】</p>
+                                    <div class="text-3xl font-bold text-amber-400 serif">19世纪</div>
+                                    <div class="text-xs text-slate-400 mt-1">起源时期</div>
+                                </div>
+                                <div class="w-px bg-slate-700"></div>
+                                <div class="text-center">
+                                    <div class="text-3xl font-bold text-amber-400 serif">17万件</div>
+                                    <div class="text-xs text-slate-400 mt-1">潮汕遗存</div>
+                                </div>
+                                <div class="w-px bg-slate-700"></div>
+                                <div class="text-center">
+                                    <div class="text-3xl font-bold text-amber-400 serif">2013年</div>
+                                    <div class="text-xs text-slate-400 mt-1">世界记忆</div>
                                 </div>
                             </div>
                         </div>
-                        <div class="absolute -bottom-4 -right-4 w-24 h-24 bg-amber-500/10 rounded-full blur-2xl"></div>
-                        <div class="absolute -top-4 -left-4 w-32 h-32 bg-red-500/10 rounded-full blur-3xl"></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Section 2: 潮汕日常用语学习 -->
-    <section id="language-section" class="py-20 px-4 bg-slate-800/50 relative">
-        <div class="max-w-5xl mx-auto">
-            <div class="flex items-center gap-4 mb-12">
-                <div class="h-px flex-1 bg-gradient-to-r from-transparent to-emerald-500/50"></div>
-                <h2 class="text-3xl md:text-4xl font-bold serif text-emerald-400 text-center">潮汕日常用语学习</h2>
-                <div class="h-px flex-1 bg-gradient-to-l from-transparent to-emerald-500/50"></div>
-            </div>
-
-            <div class="grid md:grid-cols-2 gap-6" id="language-grid">
-                <div class="glass rounded-xl p-6 border border-emerald-500/20 hover:border-emerald-500/50 transition-all cursor-pointer group">
-                    <div class="flex items-start justify-between mb-4">
-                        <div>
-                            <h4 class="text-xl font-bold text-white group-hover:text-emerald-400 transition-colors">你好</h4>
-                            <p class="text-sm text-slate-400 mt-1">日常问候</p>
+                        <div class="relative">
+                            <div class="aspect-[3/4] rounded-xl overflow-hidden bg-slate-800 border border-slate-700 shadow-2xl flex items-center justify-center">
+                                <img src="https://images.unsplash.com/photo-1580136608260-4eb11f4b64fe?w=600&h=800&fit=crop" alt="侨批文物" class="w-full h-full object-cover opacity-80">
+                                <div class="absolute inset-0 bg-gradient-to-t from-slate-900/80 to-transparent"></div>
+                                <div class="absolute bottom-4 left-4 right-4 text-center">
+                                    <p class="text-amber-400 text-sm font-medium">松兴泰银信局批局旧址</p>
+                                    <p class="text-slate-400 text-xs mt-1">潮州市区下东平路305号"莼园"</p>
+                                </div>
+                            </div>
+                            <div class="absolute -bottom-4 -right-4 w-24 h-24 bg-amber-500/10 rounded-full blur-2xl"></div>
+                            <div class="absolute -top-4 -left-4 w-32 h-32 bg-red-500/10 rounded-full blur-3xl"></div>
                         </div>
-                        <button class="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center group-hover:bg-emerald-500 transition-colors">
-                            <svg class="w-5 h-5 text-emerald-400 group-hover:text-white" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z"/></svg>
-                        </button>
                     </div>
-                    <div class="bg-slate-900/50 rounded-lg p-4 font-mono text-lg text-emerald-300">
-                        【后续上传音频】
-                    </div>
-                    <p class="mt-3 text-sm text-slate-400">点击播放潮汕话发音</p>
-                </div>
-
-                <div class="glass rounded-xl p-6 border border-emerald-500/20 hover:border-emerald-500/50 transition-all cursor-pointer group">
-                    <div class="flex items-start justify-between mb-4">
-                        <div>
-                            <h4 class="text-xl font-bold text-white group-hover:text-emerald-400 transition-colors">食饭未</h4>
-                            <p class="text-sm text-slate-400 mt-1">吃饭了没</p>
-                        </div>
-                        <button class="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center group-hover:bg-emerald-500 transition-colors">
-                            <svg class="w-5 h-5 text-emerald-400 group-hover:text-white" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z"/></svg>
-                        </button>
-                    </div>
-                    <div class="bg-slate-900/50 rounded-lg p-4 font-mono text-lg text-emerald-300">
-                        【后续上传音频】
-                    </div>
-                    <p class="mt-3 text-sm text-slate-400">点击播放潮汕话发音</p>
-                </div>
-
-                <div class="glass rounded-xl p-6 border border-emerald-500/20 hover:border-emerald-500/50 transition-all cursor-pointer group">
-                    <div class="flex items-start justify-between mb-4">
-                        <div>
-                            <h4 class="text-xl font-bold text-white group-hover:text-emerald-400 transition-colors">多谢</h4>
-                            <p class="text-sm text-slate-400 mt-1">感谢</p>
-                        </div>
-                        <button class="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center group-hover:bg-emerald-500 transition-colors">
-                            <svg class="w-5 h-5 text-emerald-400 group-hover:text-white" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z"/></svg>
-                        </button>
-                    </div>
-                    <div class="bg-slate-900/50 rounded-lg p-4 font-mono text-lg text-emerald-300">
-                        【后续上传音频】
-                    </div>
-                    <p class="mt-3 text-sm text-slate-400">点击播放潮汕话发音</p>
-                </div>
-
-                <div class="glass rounded-xl p-6 border border-emerald-500/20 hover:border-emerald-500/50 transition-all cursor-pointer group">
-                    <div class="flex items-start justify-between mb-4">
-                        <div>
-                            <h4 class="text-xl font-bold text-white group-hover:text-emerald-400 transition-colors">平安</h4>
-                            <p class="text-sm text-slate-400 mt-1">祝福用语</p>
-                        </div>
-                        <button class="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center group-hover:bg-emerald-500 transition-colors">
-                            <svg class="w-5 h-5 text-emerald-400 group-hover:text-white" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z"/></svg>
-                        </button>
-                    </div>
-                    <div class="bg-slate-900/50 rounded-lg p-4 font-mono text-lg text-emerald-300">
-                        【后续上传音频】
-                    </div>
-                    <p class="mt-3 text-sm text-slate-400">点击播放潮汕话发音</p>
                 </div>
             </div>
-            
-            <div class="mt-8 text-center">
-                <p class="text-slate-400 text-sm">【后续可继续添加更多日常用语条目】</p>
-            </div>
-        </div>
-    </section>
+        </section>
 
-    <!-- Section 3: 潮汕景点介绍 -->
-    <section id="scenery-section" class="py-20 px-4 relative">
-        <div class="max-w-6xl mx-auto">
-            <div class="flex items-center gap-4 mb-12">
-                <div class="h-px flex-1 bg-gradient-to-r from-transparent to-sky-500/50"></div>
-                <h2 class="text-3xl md:text-4xl font-bold serif text-sky-400 text-center">潮汕景点介绍</h2>
-                <div class="h-px flex-1 bg-gradient-to-l from-transparent to-sky-500/50"></div>
-            </div>
+        <!-- Section 2: 潮汕日常用语学习 -->
+        <section id="language-section" class="py-20 px-4 bg-slate-800/50 relative">
+            <div class="max-w-5xl mx-auto">
+                <div class="flex items-center gap-4 mb-12">
+                    <div class="h-px flex-1 bg-gradient-to-r from-transparent to-emerald-500/50"></div>
+                    <h2 class="text-3xl md:text-4xl font-bold serif text-emerald-400 text-center">潮汕日常用语学习</h2>
+                    <div class="h-px flex-1 bg-gradient-to-l from-transparent to-emerald-500/50"></div>
+                </div>
 
-            <div class="grid md:grid-cols-3 gap-6" id="scenery-grid">
-                <div class="group relative overflow-hidden rounded-2xl glass border border-sky-500/20 hover:border-sky-500/50 transition-all duration-500">
-                    <div class="aspect-[4/3] bg-slate-800 relative overflow-hidden">
-                        <div class="absolute inset-0 flex items-center justify-center text-slate-500">
-                            <div class="text-center">
-                                <svg class="w-12 h-12 mx-auto mb-2 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                                <span class="text-xs">【后续上传图片】</span>
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div class="glass rounded-xl p-6 border border-emerald-500/20 hover:border-emerald-500/50 transition-all cursor-pointer group">
+                        <div class="flex items-start justify-between mb-4">
+                            <div>
+                                <h4 class="text-xl font-bold text-white group-hover:text-emerald-400 transition-colors">你好</h4>
+                                <p class="text-sm text-slate-400 mt-1">日常问候</p>
+                            </div>
+                            <button class="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center group-hover:bg-emerald-500 transition-colors">
+                                <svg class="w-5 h-5 text-emerald-400 group-hover:text-white" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z"/></svg>
+                            </button>
+                        </div>
+                        <div class="bg-slate-900/50 rounded-lg p-4 font-mono text-lg text-emerald-300">
+                            汝好
+                        </div>
+                        <p class="mt-3 text-sm text-slate-400">点击播放潮汕话发音</p>
+                    </div>
+
+                    <div class="glass rounded-xl p-6 border border-emerald-500/20 hover:border-emerald-500/50 transition-all cursor-pointer group">
+                        <div class="flex items-start justify-between mb-4">
+                            <div>
+                                <h4 class="text-xl font-bold text-white group-hover:text-emerald-400 transition-colors">食饭未</h4>
+                                <p class="text-sm text-slate-400 mt-1">吃饭了没</p>
+                            </div>
+                            <button class="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center group-hover:bg-emerald-500 transition-colors">
+                                <svg class="w-5 h-5 text-emerald-400 group-hover:text-white" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z"/></svg>
+                            </button>
+                        </div>
+                        <div class="bg-slate-900/50 rounded-lg p-4 font-mono text-lg text-emerald-300">
+                            食饭未
+                        </div>
+                        <p class="mt-3 text-sm text-slate-400">点击播放潮汕话发音</p>
+                    </div>
+
+                    <div class="glass rounded-xl p-6 border border-emerald-500/20 hover:border-emerald-500/50 transition-all cursor-pointer group">
+                        <div class="flex items-start justify-between mb-4">
+                            <div>
+                                <h4 class="text-xl font-bold text-white group-hover:text-emerald-400 transition-colors">多谢</h4>
+                                <p class="text-sm text-slate-400 mt-1">感谢</p>
+                            </div>
+                            <button class="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center group-hover:bg-emerald-500 transition-colors">
+                                <svg class="w-5 h-5 text-emerald-400 group-hover:text-white" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z"/></svg>
+                            </button>
+                        </div>
+                        <div class="bg-slate-900/50 rounded-lg p-4 font-mono text-lg text-emerald-300">
+                            多谢
+                        </div>
+                        <p class="mt-3 text-sm text-slate-400">点击播放潮汕话发音</p>
+                    </div>
+
+                    <div class="glass rounded-xl p-6 border border-emerald-500/20 hover:border-emerald-500/50 transition-all cursor-pointer group">
+                        <div class="flex items-start justify-between mb-4">
+                            <div>
+                                <h4 class="text-xl font-bold text-white group-hover:text-emerald-400 transition-colors">平安</h4>
+                                <p class="text-sm text-slate-400 mt-1">祝福用语</p>
+                            </div>
+                            <button class="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center group-hover:bg-emerald-500 transition-colors">
+                                <svg class="w-5 h-5 text-emerald-400 group-hover:text-white" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z"/></svg>
+                            </button>
+                        </div>
+                        <div class="bg-slate-900/50 rounded-lg p-4 font-mono text-lg text-emerald-300">
+                            平安
+                        </div>
+                        <p class="mt-3 text-sm text-slate-400">点击播放潮汕话发音</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 3: 潮汕景点介绍 -->
+        <section id="scenery-section" class="py-20 px-4 relative">
+            <div class="max-w-6xl mx-auto">
+                <div class="flex items-center gap-4 mb-12">
+                    <div class="h-px flex-1 bg-gradient-to-r from-transparent to-sky-500/50"></div>
+                    <h2 class="text-3xl md:text-4xl font-bold serif text-sky-400 text-center">潮汕景点介绍</h2>
+                    <div class="h-px flex-1 bg-gradient-to-l from-transparent to-sky-500/50"></div>
+                </div>
+
+                <div class="grid md:grid-cols-3 gap-6">
+                    <div class="group relative overflow-hidden rounded-2xl glass border border-sky-500/20 hover:border-sky-500/50 transition-all duration-500">
+                        <div class="aspect-[4/3] bg-slate-800 relative overflow-hidden">
+                            <img src="https://images.unsplash.com/photo-1548013146-72479768bada?w=600&h=450&fit=crop" alt="广济桥" class="w-full h-full object-cover opacity-70 group-hover:opacity-100 transition-opacity group-hover:scale-110 duration-700">
+                            <div class="absolute inset-0 bg-gradient-to-t from-slate-900 via-transparent to-transparent opacity-60"></div>
+                        </div>
+                        <div class="p-6">
+                            <h3 class="text-xl font-bold text-white mb-2 group-hover:text-sky-400 transition-colors">广济桥</h3>
+                            <p class="text-sm text-slate-400 mb-4">中国四大古桥之一，集梁桥、浮桥、拱桥于一体，始建于南宋，被誉为"世界上最早的启闭式桥梁"。</p>
+                            <div class="flex items-center gap-2 text-xs text-sky-400">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                                <span>潮州</span>
                             </div>
                         </div>
-                        <div class="absolute inset-0 bg-gradient-to-t from-slate-900 via-transparent to-transparent opacity-60"></div>
                     </div>
-                    <div class="p-6">
-                        <h3 class="text-xl font-bold text-white mb-2 group-hover:text-sky-400 transition-colors">广济桥</h3>
-                        <p class="text-sm text-slate-400 mb-4">【后续上传景点介绍文字】</p>
-                        <div class="flex items-center gap-2 text-xs text-sky-400">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                            <span>潮州</span>
-                        </div>
-                    </div>
-                </div>
 
-                <div class="group relative overflow-hidden rounded-2xl glass border border-sky-500/20 hover:border-sky-500/50 transition-all duration-500">
-                    <div class="aspect-[4/3] bg-slate-800 relative overflow-hidden">
-                        <div class="absolute inset-0 flex items-center justify-center text-slate-500">
-                            <div class="text-center">
-                                <svg class="w-12 h-12 mx-auto mb-2 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                                <span class="text-xs">【后续上传图片】</span>
+                    <div class="group relative overflow-hidden rounded-2xl glass border border-sky-500/20 hover:border-sky-500/50 transition-all duration-500">
+                        <div class="aspect-[4/3] bg-slate-800 relative overflow-hidden">
+                            <img src="https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=600&h=450&fit=crop" alt="南澳岛" class="w-full h-full object-cover opacity-70 group-hover:opacity-100 transition-opacity group-hover:scale-110 duration-700">
+                            <div class="absolute inset-0 bg-gradient-to-t from-slate-900 via-transparent to-transparent opacity-60"></div>
+                        </div>
+                        <div class="p-6">
+                            <h3 class="text-xl font-bold text-white mb-2 group-hover:text-sky-400 transition-colors">南澳岛</h3>
+                            <p class="text-sm text-slate-400 mb-4">广东省唯一的海岛县，北回归线横穿其境，拥有美丽的海滩和独特的海岛风光，是潮汕地区的海上明珠。</p>
+                            <div class="flex items-center gap-2 text-xs text-sky-400">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                                <span>汕头</span>
                             </div>
                         </div>
-                        <div class="absolute inset-0 bg-gradient-to-t from-slate-900 via-transparent to-transparent opacity-60"></div>
                     </div>
-                    <div class="p-6">
-                        <h3 class="text-xl font-bold text-white mb-2 group-hover:text-sky-400 transition-colors">南澳岛</h3>
-                        <p class="text-sm text-slate-400 mb-4">【后续上传景点介绍文字】</p>
-                        <div class="flex items-center gap-2 text-xs text-sky-400">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                            <span>汕头</span>
-                        </div>
-                    </div>
-                </div>
 
-                <div class="group relative overflow-hidden rounded-2xl glass border border-sky-500/20 hover:border-sky-500/50 transition-all duration-500">
-                    <div class="aspect-[4/3] bg-slate-800 relative overflow-hidden">
-                        <div class="absolute inset-0 flex items-center justify-center text-slate-500">
-                            <div class="text-center">
-                                <svg class="w-12 h-12 mx-auto mb-2 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                                <span class="text-xs">【后续上传图片】</span>
-                            </div>
+                    <div class="group relative overflow-hidden rounded-2xl glass border border-sky-500/20 hover:border-sky-500/50 transition-all duration-500">
+                        <div class="aspect-[4/3] bg-slate-800 relative overflow-hidden">
+                            <img src="https://images.unsplash.com/photo-1569949381669-ecf31ae8e613?w=600&h=450&fit=crop" alt="开元寺" class="w-full h-full object-cover opacity-70 group-hover:opacity-100 transition-opacity group-hover:scale-110 duration-700">
+                            <div class="absolute inset-0 bg-gradient-to-t from-slate-900 via-transparent to-transparent opacity-60"></div>
                         </div>
-                        <div class="absolute inset-0 bg-gradient-to-t from-slate-900 via-transparent to-transparent opacity-60"></div>
-                    </div>
-                    <div class="p-6">
-                        <h3 class="text-xl font-bold text-white mb-2 group-hover:text-sky-400 transition-colors">开元寺</h3>
-                        <p class="text-sm text-slate-400 mb-4">【后续上传景点介绍文字】</p>
-                        <div class="flex items-center gap-2 text-xs text-sky-400">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                            <span>潮州</span>
+                        <div class="p-6">
+                            <h3 class="text-xl font-bold text-white mb-2 group-hover:text-sky-400 transition-colors">开元寺</h3>
+                            <p class="text-sm text-slate-400 mb-4">粤东地区规模最大的古刹，始建于唐代开元年间，保留了大量唐宋时期的建筑构件和文物。</p>
+                            <div class="flex items-center gap-2 text-xs text-sky-400">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                                <span>潮州</span>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
-    </section>
+        </section>
 
-    <!-- Section 4: 潮汕风俗习惯介绍 -->
-    <section id="customs-section" class="py-20 px-4 bg-slate-800/50 relative">
-        <div class="max-w-5xl mx-auto">
-            <div class="flex items-center gap-4 mb-12">
-                <div class="h-px flex-1 bg-gradient-to-r from-transparent to-purple-500/50"></div>
-                <h2 class="text-3xl md:text-4xl font-bold serif text-purple-400 text-center">潮汕风俗习惯介绍</h2>
-                <div class="h-px flex-1 bg-gradient-to-l from-transparent to-purple-500/50"></div>
-            </div>
+        <!-- Section 4: 潮汕风俗习惯介绍 -->
+        <section id="customs-section" class="py-20 px-4 bg-slate-800/50 relative">
+            <div class="max-w-5xl mx-auto">
+                <div class="flex items-center gap-4 mb-12">
+                    <div class="h-px flex-1 bg-gradient-to-r from-transparent to-purple-500/50"></div>
+                    <h2 class="text-3xl md:text-4xl font-bold serif text-purple-400 text-center">潮汕风俗习惯介绍</h2>
+                    <div class="h-px flex-1 bg-gradient-to-l from-transparent to-purple-500/50"></div>
+                </div>
 
-            <div class="space-y-6" id="customs-list">
-                <div class="glass rounded-xl p-6 md:p-8 border border-purple-500/20 hover:border-purple-500/40 transition-all">
-                    <div class="flex flex-col md:flex-row gap-6 items-start">
-                        <div class="w-full md:w-48 h-32 bg-slate-800 rounded-lg flex-shrink-0 overflow-hidden">
-                            <div class="w-full h-full flex items-center justify-center text-slate-500">
-                                <span class="text-xs">【后续上传图片】</span>
+                <div class="space-y-6">
+                    <div class="glass rounded-xl p-6 md:p-8 border border-purple-500/20 hover:border-purple-500/40 transition-all">
+                        <div class="flex flex-col md:flex-row gap-6 items-start">
+                            <div class="w-full md:w-48 h-32 bg-slate-800 rounded-lg flex-shrink-0 overflow-hidden">
+                                <img src="https://images.unsplash.com/photo-1514525253440-b393452e8d26?w=300&h=200&fit=crop" alt="英歌舞" class="w-full h-full object-cover opacity-80">
+                            </div>
+                            <div class="flex-1">
+                                <h3 class="text-xl font-bold text-white mb-3 flex items-center gap-2">
+                                    <span class="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center text-purple-400 text-sm">1</span>
+                                    英歌舞
+                                </h3>
+                                <p class="text-slate-300 leading-relaxed">
+                                    英歌舞是潮汕地区特有的民间舞蹈，融舞蹈、武术、戏剧于一体，气势磅礴，被誉为"中国汉族男子汉舞蹈"。表演者手持双棒，面涂脸谱，在激昂的锣鼓声中腾跃起舞，展现潮汕人民豪迈奔放的精神风貌。
+                                </p>
                             </div>
                         </div>
-                        <div class="flex-1">
-                            <h3 class="text-xl font-bold text-white mb-3 flex items-center gap-2">
-                                <span class="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center text-purple-400 text-sm">1</span>
-                                英歌舞
-                            </h3>
-                            <p class="text-slate-300 leading-relaxed">
-                                【后续上传风俗介绍文字】<<br>
-                                英歌舞是潮汕地区特有的民间舞蹈，融舞蹈、武术、戏剧于一体，气势磅礴，被誉为"中国汉族男子汉舞蹈"。
-                            </p>
-                        </div>
                     </div>
-                </div>
 
-                <div class="glass rounded-xl p-6 md:p-8 border border-purple-500/20 hover:border-purple-500/40 transition-all">
-                    <div class="flex flex-col md:flex-row gap-6 items-start">
-                        <div class="w-full md:w-48 h-32 bg-slate-800 rounded-lg flex-shrink-0 overflow-hidden">
-                            <div class="w-full h-full flex items-center justify-center text-slate-500">
-                                <span class="text-xs">【后续上传图片】</span>
+                    <div class="glass rounded-xl p-6 md:p-8 border border-purple-500/20 hover:border-purple-500/40 transition-all">
+                        <div class="flex flex-col md:flex-row gap-6 items-start">
+                            <div class="w-full md:w-48 h-32 bg-slate-800 rounded-lg flex-shrink-0 overflow-hidden">
+                                <img src="https://images.unsplash.com/photo-1558618666-fcd25c85f82e?w=300&h=200&fit=crop" alt="工夫茶" class="w-full h-full object-cover opacity-80">
+                            </div>
+                            <div class="flex-1">
+                                <h3 class="text-xl font-bold text-white mb-3 flex items-center gap-2">
+                                    <span class="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center text-purple-400 text-sm">2</span>
+                                    工夫茶
+                                </h3>
+                                <p class="text-slate-300 leading-relaxed">
+                                    潮汕工夫茶是中国茶艺中最具代表性的一种，以"精"著称，茶具小巧精致，冲泡过程讲究礼仪与技巧。"工夫"二字意为讲究、精细，体现了潮汕人对生活品质的追求和对客人的尊重。
+                                </p>
                             </div>
                         </div>
-                        <div class="flex-1">
-                            <h3 class="text-xl font-bold text-white mb-3 flex items-center gap-2">
-                                <span class="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center text-purple-400 text-sm">2</span>
-                                工夫茶
-                            </h3>
-                            <p class="text-slate-300 leading-relaxed">
-                                【后续上传风俗介绍文字】<<br>
-                                潮汕工夫茶是中国茶艺中最具代表性的一种，以"精"著称，茶具小巧精致，冲泡过程讲究礼仪与技巧。
-                            </p>
-                        </div>
                     </div>
-                </div>
 
-                <div class="glass rounded-xl p-6 md:p-8 border border-purple-500/20 hover:border-purple-500/40 transition-all">
-                    <div class="flex flex-col md:flex-row gap-6 items-start">
-                        <div class="w-full md:w-48 h-32 bg-slate-800 rounded-lg flex-shrink-0 overflow-hidden">
-                            <div class="w-full h-full flex items-center justify-center text-slate-500">
-                                <span class="text-xs">【后续上传图片】</span>
+                    <div class="glass rounded-xl p-6 md:p-8 border border-purple-500/20 hover:border-purple-500/40 transition-all">
+                        <div class="flex flex-col md:flex-row gap-6 items-start">
+                            <div class="w-full md:w-48 h-32 bg-slate-800 rounded-lg flex-shrink-0 overflow-hidden">
+                                <img src="https://images.unsplash.com/photo-1528164344705-47542687000d?w=300&h=200&fit=crop" alt="出花园" class="w-full h-full object-cover opacity-80">
+                            </div>
+                            <div class="flex-1">
+                                <h3 class="text-xl font-bold text-white mb-3 flex items-center gap-2">
+                                    <span class="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center text-purple-400 text-sm">3</span>
+                                    出花园
+                                </h3>
+                                <p class="text-slate-300 leading-relaxed">
+                                    "出花园"是潮汕地区特有的成人礼习俗，孩子虚岁十五岁时举行，意味着走出花园，长大成人。仪式中孩子要穿红木屐、咬鸡头，寓意脚踏实地、独占鳌头，寄托了长辈对晚辈的美好祝愿。
+                                </p>
                             </div>
                         </div>
-                        <div class="flex-1">
-                            <h3 class="text-xl font-bold text-white mb-3 flex items-center gap-2">
-                                <span class="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center text-purple-400 text-sm">3</span>
-                                出花园
-                            </h3>
-                            <p class="text-slate-300 leading-relaxed">
-                                【后续上传风俗介绍文字】<<br>
-                                "出花园"是潮汕地区特有的成人礼习俗，孩子虚岁十五岁时举行，意味着走出花园，长大成人。
-                            </p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer class="py-12 px-4 border-t border-slate-800 bg-slate-950">
+            <div class="max-w-5xl mx-auto text-center">
+                <div class="flex items-center justify-center gap-3 mb-4">
+                    <div class="w-8 h-8 bg-gradient-to-br from-amber-500 to-red-600 rounded flex items-center justify-center">
+                        <span class="text-sm font-bold serif">侨</span>
+                    </div>
+                    <span class="text-lg font-bold serif text-amber-400">潮汕侨批荟萃</span>
+                </div>
+                <p class="text-slate-500 text-sm mb-6">传承侨批文化，弘扬潮汕精神 | 世界记忆遗产数字化展示</p>
+                <div class="flex justify-center gap-6 text-xs text-slate-600">
+                    <span> 潮汕侨批文化保护项目</span>
+                    <span>•</span>
+                    <span>联合国教科文组织世界记忆遗产</span>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Detail Page for Qiaopi 1 -->
+    <div id="detail-page" class="detail-page">
+        <!-- Back Button -->
+        <button onclick="backToMain()" class="back-btn glass px-4 py-2 rounded-full flex items-center gap-2 text-amber-400 hover:text-amber-300 transition-colors border border-amber-500/30">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+            <span>返回首页</span>
+        </button>
+
+        <div class="min-h-screen pt-20 pb-20 px-4">
+            <div class="max-w-6xl mx-auto">
+                <!-- Header -->
+                <div class="text-center mb-12">
+                    <div class="inline-block px-4 py-1 rounded-full bg-amber-500/20 text-amber-400 text-sm font-medium border border-amber-500/30 mb-4">
+                        松兴泰银信局
+                    </div>
+                    <h1 class="text-3xl md:text-5xl font-bold serif text-amber-400 mb-4">
+                        暹黄炳权寄澄属南砂乡林宅岳母大人
+                    </h1>
+                    <p class="text-slate-400 text-lg">
+                        泰国（暹罗）→ 广东澄海南砂乡 | 农历十二月十二日
+                    </p>
+                </div>
+
+                <!-- Content Grid -->
+                <div class="grid lg:grid-cols-2 gap-8">
+                    <!-- Left: Image -->
+                    <div class="space-y-6">
+                        <div class="qiaopi-image rounded-2xl overflow-hidden bg-slate-800">
+                            <img src="侨批1.jpg" alt="侨批原件" class="w-full h-auto" onerror="this.src='https://images.unsplash.com/photo-1580136608260-4eb11f4b64fe?w=800&h=1000&fit=crop'">
                         </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Footer -->
-    <footer class="py-12 px-4 border-t border-slate-800 bg-slate-950">
-        <div class="max-w-5xl mx-auto text-center">
-            <div class="flex items-center justify-center gap-3 mb-4">
-                <div class="w-8 h-8 bg-gradient-to-br from-amber-500 to-red-600 rounded flex items-center justify-center">
-                    <span class="text-sm font-bold serif">侨</span>
-                </div>
-                <span class="text-lg font-bold serif text-amber-400">潮汕侨批荟萃</span>
-            </div>
-            <p class="text-slate-500 text-sm mb-6">传承侨批文化，弘扬潮汕精神 | 世界记忆遗产数字化展示</p>
-            <div class="flex justify-center gap-6 text-xs text-slate-600">
-                <span> 潮汕侨批文化保护项目</span>
-                <span>•</span>
-                <span>联合国教科文组织世界记忆遗产</span>
-            </div>
-        </div>
-    </footer>
-
-    <!-- Detail Modal -->
-    <div id="detail-modal" class="fixed inset-0 z-[100] hidden items-center justify-center p-4">
-        <div class="absolute inset-0 bg-black/80 backdrop-blur-sm" onclick="closeModal()"></div>
-        <div class="relative bg-slate-900 rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto border border-amber-500/30 shadow-2xl transform transition-all duration-300 scale-95 opacity-0" id="modal-content">
-            <button onclick="closeModal()" class="absolute top-4 right-4 z-10 w-10 h-10 rounded-full bg-slate-800 hover:bg-slate-700 flex items-center justify-center transition-colors">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-            </button>
-            
-            <div class="p-6 md:p-10">
-                <div class="flex items-center gap-3 mb-6">
-                    <div class="w-12 h-16 bg-gradient-to-b from-amber-400 to-amber-600 rounded-sm relative shadow-lg">
-                        <div class="absolute top-2 left-1/2 transform -translate-x-1/2 w-6 h-6 bg-red-700 rounded-full border-2 border-red-900"></div>
-                    </div>
-                    <div>
-                        <h2 id="modal-title" class="text-2xl md:text-3xl font-bold serif text-amber-400">侨批名称</h2>
-                        <p id="modal-subtitle" class="text-sm text-slate-400">来自 · 时间</p>
-                    </div>
-                </div>
-
-                <div class="grid md:grid-cols-2 gap-8">
-                    <div class="space-y-4">
-                        <div class="aspect-[3/4] bg-slate-800 rounded-xl overflow-hidden border border-slate-700 relative group">
-                            <div id="modal-image-placeholder" class="w-full h-full flex items-center justify-center text-slate-500">
-                                <div class="text-center">
-                                    <svg class="w-16 h-16 mx-auto mb-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                                    <p>【后续上传侨批图片】</p>
+                        <div class="glass rounded-xl p-4 border border-amber-500/20">
+                            <h3 class="text-lg font-bold text-amber-400 mb-2">批局信息</h3>
+                            <div class="grid grid-cols-2 gap-3 text-sm">
+                                <div>
+                                    <span class="text-slate-500">批局名称：</span>
+                                    <span class="text-white">松兴泰银信局</span>
+                                </div>
+                                <div>
+                                    <span class="text-slate-500">寄出地：</span>
+                                    <span class="text-white">暹罗（泰国）</span>
+                                </div>
+                                <div>
+                                    <span class="text-slate-500">收信地：</span>
+                                    <span class="text-white">澄属南砂乡林宅</span>
+                                </div>
+                                <div>
+                                    <span class="text-slate-500">日期：</span>
+                                    <span class="text-white">农历十二月十二日</span>
                                 </div>
                             </div>
                         </div>
-                        <div class="flex gap-2 overflow-x-auto pb-2">
-                            <div class="w-20 h-20 bg-slate-800 rounded-lg flex-shrink-0 border border-slate-700 flex items-center justify-center text-xs text-slate-500">图1</div>
-                            <div class="w-20 h-20 bg-slate-800 rounded-lg flex-shrink-0 border border-slate-700 flex items-center justify-center text-xs text-slate-500">图2</div>
-                            <div class="w-20 h-20 bg-slate-800 rounded-lg flex-shrink-0 border border-slate-700 flex items-center justify-center text-xs text-slate-500">图3</div>
-                        </div>
                     </div>
 
+                    <!-- Right: Text & Audio -->
                     <div class="space-y-6">
+                        <!-- Audio Player -->
                         <div class="glass rounded-xl p-6 border border-amber-500/20">
                             <h3 class="text-lg font-bold text-white mb-4 flex items-center gap-2">
                                 <svg class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/></svg>
                                 侨批朗读音频
                             </h3>
-                            
+
                             <div class="bg-slate-950 rounded-lg p-4 border border-slate-800">
                                 <div class="flex items-center gap-4 mb-4">
-                                    <button id="play-btn" onclick="toggleAudio()" class="w-12 h-12 rounded-full bg-amber-500 hover:bg-amber-400 flex items-center justify-center transition-colors shadow-lg shadow-amber-500/30">
-                                        <svg id="play-icon" class="w-6 h-6 text-white ml-1" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z"/></svg>
-                                        <svg id="pause-icon" class="w-6 h-6 text-white hidden" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+                                    <button id="detail-play-btn" onclick="toggleDetailAudio()" class="w-12 h-12 rounded-full bg-amber-500 hover:bg-amber-400 flex items-center justify-center transition-colors shadow-lg shadow-amber-500/30">
+                                        <svg id="detail-play-icon" class="w-6 h-6 text-white ml-1" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z"/></svg>
+                                        <svg id="detail-pause-icon" class="w-6 h-6 text-white hidden" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
                                     </button>
                                     <div class="flex-1">
-                                        <div class="h-2 bg-slate-800 rounded-full overflow-hidden cursor-pointer" onclick="seekAudio(event)">
-                                            <div id="progress-bar" class="h-full bg-gradient-to-r from-amber-500 to-amber-300 w-0 transition-all duration-100"></div>
+                                        <div class="h-2 bg-slate-800 rounded-full overflow-hidden cursor-pointer" onclick="seekDetailAudio(event)">
+                                            <div id="detail-progress-bar" class="h-full bg-gradient-to-r from-amber-500 to-amber-300 w-0 transition-all duration-100"></div>
                                         </div>
                                         <div class="flex justify-between mt-1 text-xs text-slate-500">
-                                            <span id="current-time">0:00</span>
-                                            <span id="duration">0:00</span>
+                                            <span id="detail-current-time">0:00</span>
+                                            <span id="detail-duration">0:00</span>
                                         </div>
                                     </div>
                                 </div>
-                                
-                                <div class="audio-wave justify-center opacity-50" id="audio-visualizer">
+
+                                <div class="audio-wave justify-center opacity-50" id="detail-audio-visualizer">
                                     <div class="audio-bar" style="animation-delay: 0s; height: 40%"></div>
                                     <div class="audio-bar" style="animation-delay: 0.1s; height: 60%"></div>
                                     <div class="audio-bar" style="animation-delay: 0.2s; height: 30%"></div>
@@ -542,39 +584,41 @@
                                     <div class="audio-bar" style="animation-delay: 0.6s; height: 40%"></div>
                                     <div class="audio-bar" style="animation-delay: 0.7s; height: 60%"></div>
                                 </div>
-                                
-                                <p class="text-xs text-slate-500 text-center mt-3">
-                                    【后续上传人声音频文件】<<br>
-                                    当前为模拟音频播放器界面
+
+                                <audio id="qiaopi-audio" src="录音机-20260604-2217.wav" preload="metadata"></audio>
+                            </div>
+                        </div>
+
+                        <!-- Text Content -->
+                        <div class="glass rounded-xl p-6 border border-amber-500/20">
+                            <h3 class="text-lg font-bold text-white mb-4">侨批原文</h3>
+                            <div class="text-content rounded-lg p-6 font-serif text-slate-200 leading-loose text-lg">
+                                <p class="mb-4">书奉</p>
+                                <p class="mb-4 text-amber-400 font-bold">岳母大人膝下：</p>
+                                <p class="mb-4">
+                                    敬禀者，婿等因远居异邦，未能躬亲奉侍，仅每月托舅兄致候而已，缘现在自己寄批，甚为麻烦，兹因年关将届，特函祝贺大人迎春纳福，并祝府上诸位康安。
+                                </p>
+                                <p class="mb-4">
+                                    兹寄港币陆拾元，与诸人福腰。计银娇妹十元，大嫂十元，齐周侄十元，余存三十元大人自己收用，祈照为分交，乃荷，余事后禀。
+                                </p>
+                                <p class="mb-4">专此，并候</p>
+                                <p class="mb-4 text-amber-400 font-bold">金安</p>
+                                <p class="text-right">
+                                    婿喜林、女银莲仝禀<br>
+                                    农历十二月十二日
                                 </p>
                             </div>
                         </div>
 
-                        <div class="space-y-4">
-                            <h3 class="text-lg font-bold text-white">侨批内容</h3>
-                            <div class="bg-slate-950/50 rounded-lg p-4 border-l-4 border-amber-500 font-serif text-slate-300 leading-relaxed italic" id="modal-text">
-                                【后续上传侨批文字内容】<<br><br>
-                                亲爱的家人：<br>
-                                见信如面，近来可好？南洋此处一切平安，请勿挂念。今寄上银元若干，望查收。愿家中老少安康，诸事顺遂。
-                            </div>
-                        </div>
-
-                        <div class="grid grid-cols-2 gap-4 text-sm">
-                            <div class="glass rounded-lg p-3 border border-slate-700">
-                                <span class="text-slate-500 block text-xs mb-1">寄出地</span>
-                                <span class="text-white font-medium" id="modal-from">泰国曼谷</span>
-                            </div>
-                            <div class="glass rounded-lg p-3 border border-slate-700">
-                                <span class="text-slate-500 block text-xs mb-1">收信地</span>
-                                <span class="text-white font-medium">广东潮汕</span>
-                            </div>
-                            <div class="glass rounded-lg p-3 border border-slate-700">
-                                <span class="text-slate-500 block text-xs mb-1">年份</span>
-                                <span class="text-white font-medium" id="modal-year">1935年</span>
-                            </div>
-                            <div class="glass rounded-lg p-3 border border-slate-700">
-                                <span class="text-slate-500 block text-xs mb-1">汇款金额</span>
-                                <span class="text-white font-medium" id="modal-amount">50银元</span>
+                        <!-- Translation -->
+                        <div class="glass rounded-xl p-6 border border-slate-700">
+                            <h3 class="text-lg font-bold text-white mb-4">白话译文</h3>
+                            <div class="text-slate-300 leading-relaxed space-y-3">
+                                <p>恭敬地呈给岳母大人：</p>
+                                <p>女婿等人因为远居异国他乡，不能亲自前来侍奉照顾，只能每月拜托舅兄代为问候。因为现在自己寄侨批，非常麻烦。眼看年关将近，特此写信祝贺大人迎接新春、接纳福气，并祝府上各位身体健康平安。</p>
+                                <p>现寄去港币六十元，给大家作过年用。分别给娇妹十元，大嫂十元，齐周侄十元，剩下的三十元大人自己收用。请按照这样分配转交，拜托了。其余的事情以后再禀告。</p>
+                                <p>专此奉达，并祝身体安康。</p>
+                                <p class="text-right text-slate-400">女婿喜林、女儿银莲共同禀告<br>农历十二月十二日</p>
                             </div>
                         </div>
                     </div>
@@ -584,23 +628,36 @@
     </div>
 
     <script>
+        // Qiaopi Data
         const qiaopiData = [
-            { id: 1, name: "曼谷来批", from: "泰国曼谷", year: "1932", amount: "30银元", region: "southeast-asia" },
-            { id: 2, name: "西贡家书", from: "越南西贡", year: "1928", amount: "20银元", region: "southeast-asia" },
-            { id: 3, name: "槟城汇款", from: "马来西亚槟城", year: "1941", amount: "100银元", region: "southeast-asia" },
-            { id: 4, name: "仰光侨批", from: "缅甸仰光", year: "1938", amount: "45银元", region: "southeast-asia" },
-            { id: 5, name: "雅加达信", from: "印尼雅加达", year: "1950", amount: "80银元", region: "southeast-asia" },
-            { id: 6, name: "新加坡批", from: "新加坡", year: "1936", amount: "60银元", region: "southeast-asia" },
-            { id: 7, name: "金边家书", from: "柬埔寨金边", year: "1940", amount: "35银元", region: "southeast-asia" },
-            { id: 8, name: "马尼拉批", from: "菲律宾马尼拉", year: "1934", amount: "55银元", region: "southeast-asia" }
+            { 
+                id: 1, 
+                name: "暹黄炳权", 
+                tooltip: "暹黄炳权寄澄属南砂乡林宅岳母大人",
+                from: "暹罗（泰国）", 
+                to: "澄属南砂乡林宅",
+                year: "农历十二月十二日", 
+                amount: "港币陆拾元",
+                bureau: "松兴泰银信局",
+                hasDetail: true
+            },
+            { id: 2, name: "西贡家书", tooltip: "越南西贡寄潮汕家书", from: "越南西贡", year: "1928", amount: "20银元", hasDetail: false },
+            { id: 3, name: "槟城汇款", tooltip: "马来西亚槟城寄潮汕汇款", from: "马来西亚槟城", year: "1941", amount: "100银元", hasDetail: false },
+            { id: 4, name: "仰光侨批", tooltip: "缅甸仰光寄潮汕侨批", from: "缅甸仰光", year: "1938", amount: "45银元", hasDetail: false },
+            { id: 5, name: "雅加达信", tooltip: "印尼雅加达寄潮汕信", from: "印尼雅加达", year: "1950", amount: "80银元", hasDetail: false },
+            { id: 6, name: "新加坡批", tooltip: "新加坡寄潮汕侨批", from: "新加坡", year: "1936", amount: "60银元", hasDetail: false },
+            { id: 7, name: "金边家书", tooltip: "柬埔寨金边寄潮汕家书", from: "柬埔寨金边", year: "1940", amount: "35银元", hasDetail: false },
+            { id: 8, name: "马尼拉批", tooltip: "菲律宾马尼拉寄潮汕侨批", from: "菲律宾马尼拉", year: "1934", amount: "55银元", hasDetail: false }
         ];
 
+        // Generate Envelope Cards
         function generateEnvelopes() {
-            const container = document.querySelector('#globe-section .grid');
+            const container = document.getElementById('envelope-container');
             container.innerHTML = qiaopiData.map((item, index) => `
                 <div class="envelope-card rounded-xl p-4 h-40 cursor-pointer transform hover:scale-105 transition-all duration-300 shadow-xl envelope-hover relative group" 
-                     onclick="openModal(${item.id})"
+                     ondblclick="${item.hasDetail ? 'openDetailPage()' : ''}"
                      style="animation-delay: ${index * 0.1}s">
+                    <div class="envelope-tooltip">${item.tooltip}</div>
                     <div class="envelope-seal group-hover:bg-red-500 transition-colors"></div>
                     <div class="mt-12 text-center relative z-10">
                         <h3 class="font-bold text-amber-900 text-lg serif mb-1">${item.name}</h3>
@@ -609,31 +666,30 @@
                             ${item.year}
                         </div>
                     </div>
-                    <div class="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <svg class="w-5 h-5 text-amber-900/50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
-                    </div>
+                    ${item.hasDetail ? '<div class="absolute top-2 right-2 text-xs text-amber-700/50 font-medium">双击查看</div>' : ''}
                 </div>
             `).join('');
         }
 
+        // Three.js Globe Setup
         let scene, camera, renderer, globe, controls, particles;
         let animationId;
 
         function initGlobe() {
             const container = document.getElementById('globe-container');
-            
+
             scene = new THREE.Scene();
             scene.fog = new THREE.FogExp2(0x0f172a, 0.002);
-            
+
             camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
             camera.position.z = 22;
             camera.position.y = 5;
-            
+
             renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.setPixelRatio(window.devicePixelRatio);
             container.appendChild(renderer.domElement);
-            
+
             controls = new THREE.OrbitControls(camera, renderer.domElement);
             controls.enableDamping = true;
             controls.dampingFactor = 0.05;
@@ -642,28 +698,28 @@
             controls.autoRotateSpeed = 0.5;
             controls.minPolarAngle = Math.PI / 3;
             controls.maxPolarAngle = Math.PI / 1.5;
-            
+
             const ambientLight = new THREE.AmbientLight(0x404040, 2);
             scene.add(ambientLight);
-            
+
             const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
             directionalLight.position.set(5, 3, 5);
             scene.add(directionalLight);
-            
+
             const pointLight = new THREE.PointLight(0xf59e0b, 1, 50);
             pointLight.position.set(10, 10, 10);
             scene.add(pointLight);
-            
+
             const geometry = new THREE.SphereGeometry(5, 64, 64);
-            
+
             const canvas = document.createElement('canvas');
             canvas.width = 1024;
             canvas.height = 512;
             const ctx = canvas.getContext('2d');
-            
+
             ctx.fillStyle = '#1e3a5f';
             ctx.fillRect(0, 0, 1024, 512);
-            
+
             ctx.fillStyle = '#0f5132';
             ctx.beginPath();
             ctx.ellipse(700, 200, 150, 100, 0, 0, Math.PI * 2);
@@ -674,9 +730,9 @@
             ctx.beginPath();
             ctx.ellipse(800, 380, 80, 50, 0, 0, Math.PI * 2);
             ctx.fill();
-            
+
             const texture = new THREE.CanvasTexture(canvas);
-            
+
             const material = new THREE.MeshPhongMaterial({
                 map: texture,
                 emissive: 0x112240,
@@ -686,10 +742,10 @@
                 transparent: true,
                 opacity: 0.9
             });
-            
+
             globe = new THREE.Mesh(geometry, material);
             scene.add(globe);
-            
+
             const atmosphereGeo = new THREE.SphereGeometry(5.2, 64, 64);
             const atmosphereMat = new THREE.MeshPhongMaterial({
                 color: 0xf59e0b,
@@ -700,15 +756,15 @@
             });
             const atmosphere = new THREE.Mesh(atmosphereGeo, atmosphereMat);
             scene.add(atmosphere);
-            
+
             const starsGeometry = new THREE.BufferGeometry();
             const starsCount = 2000;
             const posArray = new Float32Array(starsCount * 3);
-            
+
             for(let i = 0; i < starsCount * 3; i++) {
                 posArray[i] = (Math.random() - 0.5) * 100;
             }
-            
+
             starsGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
             const starsMaterial = new THREE.PointsMaterial({
                 size: 0.05,
@@ -718,19 +774,19 @@
             });
             particles = new THREE.Points(starsGeometry, starsMaterial);
             scene.add(particles);
-            
+
             const routeMaterial = new THREE.LineBasicMaterial({
                 color: 0xf59e0b,
                 transparent: true,
                 opacity: 0.6
             });
-            
+
             const routes = [
                 { start: [5.5, 1, 1], end: [4.5, 2, -2] },
                 { start: [5.2, 1.5, 1.2], end: [4.5, 2, -2] },
                 { start: [5.0, 0.5, 2], end: [4.5, 2, -2] }
             ];
-            
+
             routes.forEach(route => {
                 const curve = new THREE.QuadraticBezierCurve3(
                     new THREE.Vector3(...route.start),
@@ -742,22 +798,22 @@
                 const line = new THREE.Line(geometry, routeMaterial);
                 scene.add(line);
             });
-            
+
             const markerGeometry = new THREE.SphereGeometry(0.08, 16, 16);
             const markerMaterial = new THREE.MeshBasicMaterial({ color: 0xf59e0b });
-            
+
             const cities = [
                 { pos: [4.5, 2, -2], name: '潮汕' },
                 { pos: [5.5, 1, 1], name: '曼谷' },
                 { pos: [5.2, 1.5, 1.2], name: '新加坡' },
                 { pos: [5.0, 0.5, 2], name: '吉隆坡' }
             ];
-            
+
             cities.forEach(city => {
                 const marker = new THREE.Mesh(markerGeometry, markerMaterial);
                 marker.position.set(...city.pos);
                 globe.add(marker);
-                
+
                 const ringGeo = new THREE.RingGeometry(0.1, 0.15, 32);
                 const ringMat = new THREE.MeshBasicMaterial({ 
                     color: 0xf59e0b, 
@@ -770,17 +826,17 @@
                 ring.lookAt(new THREE.Vector3(0,0,0));
                 globe.add(ring);
             });
-            
+
             animate();
         }
 
         function animate() {
             animationId = requestAnimationFrame(animate);
-            
+
             if (particles) {
                 particles.rotation.y += 0.0002;
             }
-            
+
             controls.update();
             renderer.render(scene, camera);
         }
@@ -793,59 +849,54 @@
 
         window.addEventListener('resize', onWindowResize);
 
-        let currentAudio = null;
-        let isPlaying = false;
-        let audioProgress = 0;
-
-        function openModal(id) {
-            const item = qiaopiData.find(q => q.id === id);
-            if (!item) return;
-            
-            document.getElementById('modal-title').textContent = item.name;
-            document.getElementById('modal-subtitle').textContent = `${item.from} · ${item.year}`;
-            document.getElementById('modal-from').textContent = item.from;
-            document.getElementById('modal-year').textContent = item.year + '年';
-            document.getElementById('modal-amount').textContent = item.amount;
-            
-            const modal = document.getElementById('detail-modal');
-            const content = document.getElementById('modal-content');
-            modal.classList.remove('hidden');
-            modal.classList.add('flex');
-            
-            setTimeout(() => {
-                content.classList.remove('scale-95', 'opacity-0');
-                content.classList.add('scale-100', 'opacity-100');
-            }, 10);
-            
-            resetAudio();
+        // Page Navigation
+        function openDetailPage() {
+            document.getElementById('main-page').style.display = 'none';
+            document.getElementById('detail-page').classList.add('active');
+            window.scrollTo(0, 0);
         }
 
-        function closeModal() {
-            const modal = document.getElementById('detail-modal');
-            const content = document.getElementById('modal-content');
-            
-            content.classList.remove('scale-100', 'opacity-100');
-            content.classList.add('scale-95', 'opacity-0');
-            
-            setTimeout(() => {
-                modal.classList.add('hidden');
-                modal.classList.remove('flex');
-                resetAudio();
-            }, 300);
+        function backToMain() {
+            document.getElementById('detail-page').classList.remove('active');
+            document.getElementById('main-page').style.display = 'block';
+            window.scrollTo(0, 0);
+            // Pause audio when going back
+            const audio = document.getElementById('qiaopi-audio');
+            if (audio) {
+                audio.pause();
+                isDetailPlaying = false;
+                updateDetailPlayButton();
+            }
         }
 
-        function toggleAudio() {
-            isPlaying = !isPlaying;
-            const playIcon = document.getElementById('play-icon');
-            const pauseIcon = document.getElementById('pause-icon');
-            const visualizer = document.getElementById('audio-visualizer');
-            
-            if (isPlaying) {
+        // Detail Page Audio Player
+        let isDetailPlaying = false;
+        let detailAudioProgress = 0;
+
+        function toggleDetailAudio() {
+            const audio = document.getElementById('qiaopi-audio');
+            if (!audio) return;
+
+            if (isDetailPlaying) {
+                audio.pause();
+                isDetailPlaying = false;
+            } else {
+                audio.play().catch(e => console.log('Audio play failed:', e));
+                isDetailPlaying = true;
+            }
+            updateDetailPlayButton();
+        }
+
+        function updateDetailPlayButton() {
+            const playIcon = document.getElementById('detail-play-icon');
+            const pauseIcon = document.getElementById('detail-pause-icon');
+            const visualizer = document.getElementById('detail-audio-visualizer');
+
+            if (isDetailPlaying) {
                 playIcon.classList.add('hidden');
                 pauseIcon.classList.remove('hidden');
                 visualizer.classList.remove('opacity-50');
                 visualizer.classList.add('opacity-100');
-                simulateAudioProgress();
             } else {
                 playIcon.classList.remove('hidden');
                 pauseIcon.classList.add('hidden');
@@ -854,45 +905,43 @@
             }
         }
 
-        function simulateAudioProgress() {
-            if (!isPlaying) return;
-            
-            audioProgress += 0.5;
-            if (audioProgress > 100) {
-                audioProgress = 0;
-                toggleAudio();
-                return;
-            }
-            
-            document.getElementById('progress-bar').style.width = audioProgress + '%';
-            
-            const totalSeconds = 180;
-            const currentSeconds = Math.floor((audioProgress / 100) * totalSeconds);
-            const mins = Math.floor(currentSeconds / 60);
-            const secs = currentSeconds % 60;
-            document.getElementById('current-time').textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
-            
-            setTimeout(simulateAudioProgress, 100);
-        }
+        function seekDetailAudio(e) {
+            const audio = document.getElementById('qiaopi-audio');
+            if (!audio) return;
 
-        function resetAudio() {
-            isPlaying = false;
-            audioProgress = 0;
-            document.getElementById('play-icon').classList.remove('hidden');
-            document.getElementById('pause-icon').classList.add('hidden');
-            document.getElementById('progress-bar').style.width = '0%';
-            document.getElementById('current-time').textContent = '0:00';
-            document.getElementById('audio-visualizer').classList.add('opacity-50');
-        }
-
-        function seekAudio(e) {
             const rect = e.currentTarget.getBoundingClientRect();
             const x = e.clientX - rect.left;
-            const percentage = (x / rect.width) * 100;
-            audioProgress = percentage;
-            document.getElementById('progress-bar').style.width = percentage + '%';
+            const percentage = x / rect.width;
+            audio.currentTime = percentage * audio.duration;
         }
 
+        // Audio progress tracking
+        document.addEventListener('DOMContentLoaded', () => {
+            const audio = document.getElementById('qiaopi-audio');
+            if (audio) {
+                audio.addEventListener('timeupdate', () => {
+                    const progress = (audio.currentTime / audio.duration) * 100;
+                    document.getElementById('detail-progress-bar').style.width = progress + '%';
+
+                    const mins = Math.floor(audio.currentTime / 60);
+                    const secs = Math.floor(audio.currentTime % 60);
+                    document.getElementById('detail-current-time').textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
+                });
+
+                audio.addEventListener('loadedmetadata', () => {
+                    const mins = Math.floor(audio.duration / 60);
+                    const secs = Math.floor(audio.duration % 60);
+                    document.getElementById('detail-duration').textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
+                });
+
+                audio.addEventListener('ended', () => {
+                    isDetailPlaying = false;
+                    updateDetailPlayButton();
+                });
+            }
+        });
+
+        // Navigation
         function scrollToSection(id) {
             document.getElementById(id).scrollIntoView({ behavior: 'smooth' });
             document.getElementById('mobile-menu').classList.add('hidden');
@@ -903,25 +952,10 @@
             menu.classList.toggle('hidden');
         }
 
+        // Initialize
         document.addEventListener('DOMContentLoaded', () => {
             generateEnvelopes();
             initGlobe();
-            
-            const observer = new IntersectionObserver((entries) => {
-                entries.forEach(entry => {
-                    if (entry.isIntersecting) {
-                        entry.target.classList.add('animate-fade-in');
-                    }
-                });
-            });
-            
-            document.querySelectorAll('section').forEach(section => {
-                observer.observe(section);
-            });
-        });
-
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') closeModal();
         });
     </script>
 </body>
